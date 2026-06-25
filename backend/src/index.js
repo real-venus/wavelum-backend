@@ -26,9 +26,10 @@ require("./services/telemetryService");
 const metricsService = require("./services/metricsService");
 const { metricsMiddleware } = require("./middleware/metrics.middleware");
 const { globalRateLimiter, authRateLimiter } = require("./middleware/rateLimit.middleware");
-const queueService = require("./services/queueService");
-// Initialize worker
-require("./workers/heavyComputationWorker");
+// Background job manager: BullMQ queues with retry/backoff, dead-letter queues,
+// stalled-job detection and DLQ monitoring/alerting.
+const backgroundJobManager = require("./workers/backgroundJobManager");
+backgroundJobManager.init();
 
 
 dotenv.config();
@@ -535,6 +536,9 @@ app.use("/api/ledger-reorg", require('./routes/ledgerReorg'));
 
 // Mount vesting history routes (optimized PostgreSQL queries)
 app.use("/api/vesting-history", require('./routes/vestingHistory'));
+
+// Mount background queue admin routes (status, DLQ inspection, manual retry)
+app.use("/admin/queues", require('./routes/adminQueues'));
 
 // Historical price tracking job management endpoints
 app.post("/api/admin/jobs/historical-prices/start", async (req, res) => {
@@ -2142,7 +2146,7 @@ app.get("/api/statements/annual/:userAddress/:year/download", async (req, res) =
     const { userAddress, year } = req.params;
 
     const statement = await annualVestingStatementService.getStatement(userAddress, parseInt(year));
-    const job = await queueService.addAnnualStatementJob(statement.statement_data, parseInt(year));
+    const job = await backgroundJobManager.addAnnualStatementJob(statement.statement_data, parseInt(year));
 
     res.json({
       success: true,
@@ -2158,7 +2162,7 @@ app.get("/api/statements/annual/:userAddress/:year/download", async (req, res) =
 // GET /api/jobs/:id - Check job status
 app.get("/api/jobs/:id", async (req, res) => {
   try {
-    const status = await queueService.getJobStatus(req.params.id);
+    const status = await backgroundJobManager.getJobStatus(req.params.id);
     if (!status) {
       return res.status(404).json({ success: false, error: "Job not found" });
     }

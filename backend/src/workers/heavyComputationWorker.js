@@ -1,16 +1,15 @@
-const { Worker } = require('bullmq');
-const ioredis = require('ioredis');
-    console.error(`Error in worker for job ${job.id}:`, error);
-    throw error;
-  }
-}, { connection });
+/**
+ * Heavy-computation worker entrypoint.
+ *
+ * Worker registration, retry/backoff, dead-letter routing and stalled-job
+ * detection now live in the centralized BackgroundJobManager. This module is
+ * kept as a thin compatibility shim: requiring it ensures the manager is
+ * initialized (idempotent) so the `heavy-computation` worker is running.
+ */
+const backgroundJobManager = require('./backgroundJobManager');
 
-worker.on('completed', (job) => {
-  console.log(`Job ${job.id} completed successfully`);
-});
+backgroundJobManager.init().catch((err) =>
+  console.error('Failed to initialize background jobs from heavyComputationWorker:', err.message)
+);
 
-worker.on('failed', (job, err) => {
-  console.error(`Job ${job.id} failed with error: ${err.message}`);
-});
-
-module.exports = worker;
+module.exports = backgroundJobManager;

@@ -9,9 +9,7 @@ on:
 jobs:
   smart-contract-tests:
     runs-on: ubuntu-latest
-    # Disabled: Rust/Soroban contract tests are unrelated to backend changes.
-    if: false
-
+    
     steps:
       - uses: actions/checkout@v6
       
@@ -73,10 +71,7 @@ jobs:
 
   backend-tests:
     runs-on: ubuntu-latest
-    # Disabled: the legacy Jest suite has pre-existing failures across many
-    # unrelated feature areas (tracked separately) and must not block this PR.
-    if: false
-
+    
     services:
       postgres:
         image: postgres:15
@@ -125,8 +120,6 @@ jobs:
   integration-tests:
     runs-on: ubuntu-latest
     needs: [smart-contract-tests, backend-tests]
-    # Disabled: depends on the disabled jobs above and a live environment.
-    if: false
     
     steps:
       - uses: actions/checkout@v6

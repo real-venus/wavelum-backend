@@ -69,9 +69,6 @@ jobs:
     name: "Backend Unit Tests"
     runs-on: ubuntu-latest
     needs: lint
-    # Disabled: the legacy Jest suite has pre-existing failures across many
-    # unrelated feature areas (tracked separately) and must not block this PR.
-    if: false
 
     services:
       postgres:
@@ -142,8 +139,7 @@ jobs:
     name: "Soroban Smart Contract Tests"
     runs-on: ubuntu-latest
     needs: lint
-    # Disabled: Rust/Soroban contract tests are unrelated to backend changes.
-    if: false
+    if: ${{ github.event.inputs.skip_contracts != 'true' }}
 
     steps:
       - uses: actions/checkout@v6

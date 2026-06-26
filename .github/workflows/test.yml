@@ -9,10 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    # Disabled: the legacy Jest suite has pre-existing failures across many
-    # unrelated feature areas (tracked separately) and must not block this PR.
-    if: false
-
+    
     steps:
       - uses: actions/checkout@v6
       

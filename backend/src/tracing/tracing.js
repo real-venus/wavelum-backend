@@ -1,15 +1,27 @@
-const { NodeSDK } = require('@opentelemetry/sdk-node');
-const { getNodeAutoInstrumentations } = require('@opentelemetry/auto-instrumentations-node');
-const { OTLPTraceExporter } = require('@opentelemetry/exporter-otlp-grpc');
-const { JaegerExporter } = require('@opentelemetry/exporter-jaeger');
-const { Resource } = require('@opentelemetry/resources');
-const { SemanticResourceAttributes } = require('@opentelemetry/semantic-conventions');
-
-// Initialize OpenTelemetry tracing
+// Initialize OpenTelemetry tracing.
+//
+// Dependencies are required lazily inside the function and guarded by try/catch
+// so that a missing/optional OpenTelemetry package can never break module load
+// (which previously failed the entire test suite when an exporter package was
+// absent). If tracing can't be initialized it degrades to a no-op.
 function initializeTracing() {
+  let NodeSDK, getNodeAutoInstrumentations, OTLPTraceExporter, JaegerExporter, Resource, SemanticResourceAttributes;
+  try {
+    ({ NodeSDK } = require('@opentelemetry/sdk-node'));
+    ({ getNodeAutoInstrumentations } = require('@opentelemetry/auto-instrumentations-node'));
+    // Modern package name (the legacy "@opentelemetry/exporter-otlp-grpc" is deprecated).
+    ({ OTLPTraceExporter } = require('@opentelemetry/exporter-trace-otlp-grpc'));
+    ({ JaegerExporter } = require('@opentelemetry/exporter-jaeger'));
+    ({ Resource } = require('@opentelemetry/resources'));
+    ({ SemanticResourceAttributes } = require('@opentelemetry/semantic-conventions'));
+  } catch (err) {
+    console.warn('OpenTelemetry tracing disabled (dependency unavailable):', err.message);
+    return null;
+  }
+
   const isProduction = process.env.NODE_ENV === 'production';
-  serviceName = process.env.OTEL_SERVICE_NAME || 'vesting-vault-backend';
-  
+  const serviceName = process.env.OTEL_SERVICE_NAME || 'vesting-vault-backend';
+
   // Choose exporter based on environment
   let traceExporter;
   if (process.env.JAEGER_ENDPOINT) {
@@ -27,40 +39,45 @@ function initializeTracing() {
     });
   }
 
-  const sdk = new NodeSDK({
-    resource: new Resource({
-      [SemanticResourceAttributes.SERVICE_NAME]: serviceName,
-      [SemanticResourceAttributes.SERVICE_VERSION]: process.env.npm_package_version || '1.0.0',
-      [SemanticResourceAttributes.DEPLOYMENT_ENVIRONMENT]: process.env.NODE_ENV || 'development',
-    }),
-    traceExporter,
-    instrumentations: [getNodeAutoInstrumentations({
-      // Disable some instrumentations if not needed
-      '@opentelemetry/instrumentation-fs': {
-        enabled: false,
+  try {
+    const sdk = new NodeSDK({
+      resource: new Resource({
+        [SemanticResourceAttributes.SERVICE_NAME]: serviceName,
+        [SemanticResourceAttributes.SERVICE_VERSION]: process.env.npm_package_version || '1.0.0',
+        [SemanticResourceAttributes.DEPLOYMENT_ENVIRONMENT]: process.env.NODE_ENV || 'development',
+      }),
+      traceExporter,
+      instrumentations: [getNodeAutoInstrumentations({
+        // Disable some instrumentations if not needed
+        '@opentelemetry/instrumentation-fs': {
+          enabled: false,
+        },
+      })],
+      // Sampling configuration
+      sampler: {
+        type: 'traceidratio',
+        ratio: isProduction ? 0.1 : 1.0, // 10% sampling in production, 100% in development
       },
-    })],
-    // Sampling configuration
-    sampler: {
-      type: 'traceidratio',
-      ratio: isProduction ? 0.1 : 1.0, // 10% sampling in production, 100% in development
-    },
-  });
+    });
 
-  // Initialize the SDK
-  sdk.start();
+    // Initialize the SDK
+    sdk.start();
 
-  console.log('🔍 OpenTelemetry tracing initialized');
-  
-  // Graceful shutdown
-  process.on('SIGTERM', () => {
-    sdk.shutdown()
-      .then(() => console.log('🔍 OpenTelemetry tracing shut down'))
-      .catch((error) => console.error('Error shutting down OpenTelemetry', error))
-      .finally(() => process.exit(0));
-  });
+    console.log('🔍 OpenTelemetry tracing initialized');
 
-  return sdk;
+    // Graceful shutdown
+    process.on('SIGTERM', () => {
+      sdk.shutdown()
+        .then(() => console.log('🔍 OpenTelemetry tracing shut down'))
+        .catch((error) => console.error('Error shutting down OpenTelemetry', error))
+        .finally(() => process.exit(0));
+    });
+
+    return sdk;
+  } catch (err) {
+    console.warn('OpenTelemetry tracing failed to start, continuing without it:', err.message);
+    return null;
+  }
 }
 
 module.exports = {

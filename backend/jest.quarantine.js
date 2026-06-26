@@ -52,7 +52,6 @@ module.exports = [
   "src/tests/api.fuzz.test.js",
   "src/tests/batchRevocation.test.js",
   "src/tests/sep10Auth.test.js",
-  "src/websocket/__tests__/dashboard-gateway.test.js",
   "test/accountConsolidation.integration.test.js",
   "test/auditorApi.test.js",
   "test/auth.integration.test.js",

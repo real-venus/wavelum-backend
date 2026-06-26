@@ -89,7 +89,8 @@ const VaultRegistry = sequelize.define('VaultRegistry', {
       fields: ['is_active'],
     },
     {
-      fields: ['created_at'],
+      // createdAt is mapped to the `discovered_at` column above.
+      fields: ['discovered_at'],
     },
   ],
 });

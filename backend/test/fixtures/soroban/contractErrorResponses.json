@@ -1,0 +1,26 @@
+{
+  "txn_failed": {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "error": {
+      "code": -32603,
+      "message": "txn_failed"
+    }
+  },
+  "rate_limit": {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "error": {
+      "code": -32000,
+      "message": "Too Many Requests"
+    }
+  },
+  "invalid_parameter": {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "error": {
+      "code": -32602,
+      "message": "invalid parameter"
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "type": "contract",
+  "ledger": 123456,
+  "id": "event_vesting_1",
+  "contractId": "CBA456",
+  "timestamp": "2026-06-25T20:00:00Z",
+  "body": {
+    "topic": ["VestingScheduleCreated", "user1"],
+    "data": "AAAAA...",
+    "contractId": "CBA456"
+  }
+}

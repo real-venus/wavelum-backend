@@ -49,6 +49,7 @@ module.exports = [
   "src/services/vestingService.test.js",
   "src/test/privacyMasking.test.js",
   "src/test/vaultRegistry.test.js",
+  "src/tests/api.fuzz.test.js",
   "src/tests/batchRevocation.test.js",
   "src/tests/sep10Auth.test.js",
   "src/websocket/__tests__/dashboard-gateway.test.js",

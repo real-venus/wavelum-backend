@@ -2,8 +2,11 @@ const express = require('express');
 const router = express.Router();
 const pathPaymentAnalyticsService = require('../services/pathPaymentAnalyticsService');
 const stellarPathPaymentListener = require('../services/stellarPathPaymentListener');
-const { authMiddleware } = require('../middleware/auth.middleware');
-const { body, query, validationResult } = require('express-validator');
+// auth.middleware.js does not export `authMiddleware`; build the user-auth
+// middleware from authService (these routes are @access Private).
+const authService = require('../services/authService');
+const authMiddleware = authService.authenticate();
+const { body, param, query, validationResult } = require('express-validator');
 
 /**
  * @route GET /api/conversions/user/:userAddress

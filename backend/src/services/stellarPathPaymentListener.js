@@ -1,4 +1,5 @@
-const { Server, Networks, TransactionBuilder, Operation } = require('stellar-sdk');
+// stellar-sdk v11 replaced the old top-level `Server` with `Horizon.Server`.
+const { Horizon, Networks, TransactionBuilder, Operation } = require('stellar-sdk');
 const { sequelize } = require('../database/connection');
 const { ConversionEvent, ClaimsHistory } = require('../models');
 const { Op } = require('sequelize');
@@ -13,7 +14,7 @@ class StellarPathPaymentListener extends EventEmitter {
     super();
     this.horizonUrl = process.env.STELLAR_HORIZON_URL || 'https://horizon.stellar.org';
     this.network = process.env.STELLAR_NETWORK === 'public' ? Networks.PUBLIC : Networks.TESTNET;
-    this.server = new Server(this.horizonUrl);
+    this.server = new Horizon.Server(this.horizonUrl);
     this.isListening = false;
     this.lastLedger = 0;
     this.cursor = 'now';

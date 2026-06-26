@@ -1,13 +1,12 @@
 const express = require("express");
 const router = express.Router();
 const KycStatus = require("../models/KycStatus");
-const KycStatusExpirationWorker = require("../jobs/kycStatusExpirationWorker");
+// jobs/kycExpirationWorker exports a singleton instance (not a class).
+const kycWorker = require("../jobs/kycExpirationWorker");
 const authService = require("../services/authService");
 const AuditService = require("../services/auditService");
 const sep10Auth = require("../middleware/sep10Auth.middleware");
 const { Op } = require("sequelize");
-
-const kycWorker = new KycStatusExpirationWorker();
 
 // GET /api/kyc-status/user/:userAddress
 // Get KYC status for a specific user

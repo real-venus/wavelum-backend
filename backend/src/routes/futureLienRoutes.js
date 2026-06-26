@@ -1,7 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const futureLienService = require('../services/futureLienService');
-const { authenticateToken } = require('../middleware/authMiddleware');
+// There is no `../middleware/authMiddleware` module / `authenticateToken` export;
+// build the user-auth middleware from authService.
+const authService = require('../services/authService');
+const authenticateToken = authService.authenticate();
+// Inline route validators use express-validator's param/query/body.
+const { body, param, query } = require('express-validator');
 const {
   createFutureLienValidation,
   processLienReleaseValidation,

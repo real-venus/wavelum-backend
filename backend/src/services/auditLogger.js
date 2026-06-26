@@ -4,6 +4,8 @@ const path = require('path');
 class AuditLogger {
   constructor() {
     this.logFilePath = path.join(__dirname, '../../logs/audit.log');
+    // Dedicated channel for slow database queries (issue #8).
+    this.slowQueryLogPath = path.join(__dirname, '../../logs/slow_queries.log');
     this.ensureLogDirectory();
   }
 
@@ -23,6 +25,38 @@ class AuditLogger {
       console.log(`Audit log: ${logEntry.trim()}`);
     } catch (error) {
       console.error('Failed to write to audit log:', error);
+    }
+  }
+
+  /**
+   * Append a slow query to the dedicated slow_queries channel.
+   * @param {{operation:string, durationMs:number, sql:string, timestamp?:string}} entry
+   */
+  logSlowQuery(entry) {
+    const timestamp = entry.timestamp || new Date().toISOString();
+    const logEntry = `[${timestamp}] [${entry.durationMs}ms] [${entry.operation}] ${entry.sql}\n`;
+
+    try {
+      fs.appendFileSync(this.slowQueryLogPath, logEntry);
+      console.warn(`Slow query (${entry.durationMs}ms) [${entry.operation}]`);
+    } catch (error) {
+      console.error('Failed to write to slow query log:', error);
+    }
+  }
+
+  getSlowQueryEntries() {
+    try {
+      if (!fs.existsSync(this.slowQueryLogPath)) {
+        return [];
+      }
+      const content = fs.readFileSync(this.slowQueryLogPath, 'utf8');
+      return content
+        .split('\n')
+        .filter((line) => line.trim() !== '')
+        .reverse();
+    } catch (error) {
+      console.error('Failed to read slow query log:', error);
+      return [];
     }
   }
 

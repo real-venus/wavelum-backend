@@ -39,3 +39,17 @@ jobs:
       - name: Generate coverage report
         working-directory: ./backend
         run: npm run test:coverage
+
+      - name: Check for Soroban changes
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            soroban:
+              - 'backend/src/services/soroban*.js'
+              - 'contracts/**'
+
+      - name: Run Soroban integration tests
+        if: steps.filter.outputs.soroban == 'true'
+        working-directory: ./backend
+        run: npm run test:integration:soroban

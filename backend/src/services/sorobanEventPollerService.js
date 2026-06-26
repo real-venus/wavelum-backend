@@ -162,9 +162,13 @@ class SorobanEventPollerService {
       // Get last processed ledger
       const lastProcessedLedger = await this.getLastProcessedLedger();
       
-      // Get latest ledger from network
-      const latestLedgerInfo = await this.rpcClient.getLatestLedger();
-      const latestLedger = latestLedgerInfo.sequence;
+      let latestLedger;
+      try {
+        const latestLedgerInfo = await this.rpcClient.getLatestLedger();
+        latestLedger = latestLedgerInfo.sequence;
+      } catch (error) {
+        throw error;
+      }
       
       if (latestLedger <= lastProcessedLedger) {
         console.log(`[${pollId}] No new ledgers (latest: ${latestLedger}, last processed: ${lastProcessedLedger})`);

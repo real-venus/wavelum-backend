@@ -294,6 +294,28 @@ app.get("/metrics", async (req, res) => {
   }
 });
 
+// Database connection pool + query performance status (issue #8)
+app.get("/admin/db/pool-status", (req, res) => {
+  try {
+    const connectionPoolMonitor = require("./database/connectionPoolMonitor");
+    const queryPerformanceMonitor = require("./database/queryPerformanceMonitor");
+    const limit = parseInt(req.query.slowLimit, 10) || 25;
+
+    res.json({
+      success: true,
+      data: {
+        pool: connectionPoolMonitor.getStatus(),
+        queries: queryPerformanceMonitor.getStats(),
+        slowQueries: queryPerformanceMonitor.getSlowQueries(limit),
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching DB pool status:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch DB pool status" });
+  }
+});
+
 
 // Enhanced health check with readiness probe
 app.get("/health/ready", async (req, res) => {
@@ -2425,6 +2447,16 @@ const startServer = async () => {
     const sequelize = await getSequelize();
     await sequelize.authenticate();
     console.log("Database connection established successfully.");
+
+    // Attach the connection pool monitor (metrics + adaptive sizing — issue #8)
+    try {
+      const connectionPoolMonitor = require("./database/connectionPoolMonitor");
+      connectionPoolMonitor.attach(sequelize);
+      connectionPoolMonitor.start();
+      console.log("Database connection pool monitor started.");
+    } catch (poolMonitorError) {
+      console.error("Failed to start DB pool monitor:", poolMonitorError.message);
+    }
 
     await sequelize.sync();
     console.log("Database synchronized successfully.");

@@ -29,6 +29,33 @@ const totalIndexedBlocks = new client.Gauge({
   help: 'Total number of ledger blocks indexed'
 });
 
+// Database connection pool metrics
+const dbPoolIdleConnections = new client.Gauge({
+  name: 'db_pool_idle_connections',
+  help: 'Number of idle (available) connections in the database pool'
+});
+
+const dbPoolWaitingRequests = new client.Gauge({
+  name: 'db_pool_waiting_requests',
+  help: 'Number of requests waiting to acquire a database connection'
+});
+
+const dbPoolUtilization = new client.Gauge({
+  name: 'db_pool_utilization_ratio',
+  help: 'Database pool utilization (active connections / max connections, 0..1)'
+});
+
+const dbPoolMaxConnections = new client.Gauge({
+  name: 'db_pool_max_connections',
+  help: 'Configured maximum size of the database connection pool'
+});
+
+const dbSlowQueriesTotal = new client.Counter({
+  name: 'db_slow_queries_total',
+  help: 'Total number of database queries exceeding the slow-query threshold',
+  labelNames: ['operation']
+});
+
 // RPC Health Metrics
 const rpcEndpointHealth = new client.Gauge({
   name: 'soroban_rpc_endpoint_health',
@@ -58,6 +85,11 @@ const rpcRetryCount = new client.Counter({
 register.registerMetric(apiResponseTime);
 register.registerMetric(activeDbConnections);
 register.registerMetric(totalIndexedBlocks);
+register.registerMetric(dbPoolIdleConnections);
+register.registerMetric(dbPoolWaitingRequests);
+register.registerMetric(dbPoolUtilization);
+register.registerMetric(dbPoolMaxConnections);
+register.registerMetric(dbSlowQueriesTotal);
 register.registerMetric(rpcEndpointHealth);
 register.registerMetric(rpcHealthCheckLatency);
 register.registerMetric(rpcFailoverCount);
@@ -68,6 +100,11 @@ module.exports = {
   apiResponseTime,
   activeDbConnections,
   totalIndexedBlocks,
+  dbPoolIdleConnections,
+  dbPoolWaitingRequests,
+  dbPoolUtilization,
+  dbPoolMaxConnections,
+  dbSlowQueriesTotal,
   rpcEndpointHealth,
   rpcHealthCheckLatency,
   rpcFailoverCount,

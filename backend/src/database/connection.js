@@ -1,7 +1,18 @@
 const { Sequelize } = require('sequelize');
 const secretsService = require('../services/secretsService');
+const { buildPoolOptions, buildTimeoutDialectOptions } = require('./poolConfig');
+const queryPerformanceMonitor = require('./queryPerformanceMonitor');
 
 let sequelize;
+
+/**
+ * Sequelize logging callback that feeds the query performance monitor while
+ * preserving console logging in development. Used with `benchmark: true` so the
+ * elapsed time (ms) is passed as the second argument.
+ */
+const queryLogger = queryPerformanceMonitor.createSequelizeLogger(
+  process.env.NODE_ENV === 'development' ? console.log : null
+);
 
 /**
  * Initialize database connection with dynamic credentials from Vault/Secrets Manager
@@ -12,7 +23,9 @@ const initializeDatabase = async () => {
     sequelize = new Sequelize({
       dialect: 'sqlite',
       storage: ':memory:',
-      logging: false,
+      // Instrument queries even in tests so the performance monitor is exercised.
+      benchmark: true,
+      logging: queryLogger,
     });
   } else {
     // Get database credentials dynamically from secrets service
@@ -27,16 +40,18 @@ const initializeDatabase = async () => {
           host: dbConfig.host,
           port: dbConfig.port,
           dialect: 'postgres',
-          logging: process.env.NODE_ENV === 'development' ? console.log : false,
+          benchmark: true,
+          logging: queryLogger,
           ssl: dbConfig.ssl,
-          dialectOptions: dbConfig.ssl ? {
-            sslmode: 'require',
-            rejectUnauthorized: true
-          } : undefined
+          pool: buildPoolOptions(),
+          dialectOptions: {
+            ...(dbConfig.ssl ? { sslmode: 'require', rejectUnauthorized: true } : {}),
+            ...buildTimeoutDialectOptions(),
+          },
         }
       );
 
-      console.log('Database connection initialized with dynamic credentials');
+      console.log('Database connection initialized with dynamic credentials and tuned pool', buildPoolOptions());
     } catch (error) {
       console.error('Failed to initialize database with dynamic credentials, falling back to environment variables:', error);
       
@@ -49,11 +64,15 @@ const initializeDatabase = async () => {
           host: process.env.DB_HOST || 'localhost',
           port: process.env.DB_PORT || 5432,
           dialect: 'postgres',
-          logging: process.env.NODE_ENV === 'development' ? console.log : false,
-          ssl: process.env.DB_SSL === 'true' ? {
-            sslmode: 'require',
-            rejectUnauthorized: true
-          } : undefined
+          benchmark: true,
+          logging: queryLogger,
+          pool: buildPoolOptions(),
+          dialectOptions: {
+            ...(process.env.DB_SSL === 'true'
+              ? { sslmode: 'require', rejectUnauthorized: true }
+              : {}),
+            ...buildTimeoutDialectOptions(),
+          },
         }
       );
     }
@@ -65,12 +84,79 @@ const initializeDatabase = async () => {
 // Initialize immediately for backward compatibility
 let initPromise = initializeDatabase();
 
-// Export a promise that resolves to the initialized sequelize instance
-module.exports = { 
-  sequelize: sequelize,
+/**
+ * Read replicas, if any are configured. Read/write splitting routes reads to a
+ * replica and writes to the primary; with no replicas configured every
+ * operation resolves to the primary (pooled) connection.
+ */
+const readReplicas = [];
+
+/**
+ * Return the appropriate (pooled) Sequelize connection for a database
+ * operation. Writes/mutations always go to the primary; reads may be served by
+ * a replica when one is healthy and configured, otherwise they fall back to the
+ * primary. This is the entry point used by BaseModel and the database router.
+ *
+ * @param {string} [operation='read'] - one of read|write|create|update|delete
+ * @returns {import('sequelize').Sequelize} the connection to use
+ */
+const getDatabaseConnection = (operation = 'read') => {
+  const isWrite = ['write', 'create', 'update', 'delete', 'insert', 'upsert'].includes(
+    String(operation).toLowerCase()
+  );
+
+  if (!isWrite && readReplicas.length > 0) {
+    // Simple round-robin across healthy replicas for read operations.
+    const replica = readReplicas[Math.floor(Math.random() * readReplicas.length)];
+    if (replica) return replica;
+  }
+
+  return sequelize;
+};
+
+/**
+ * Replica lag in bytes. With no streaming replicas configured there is no lag.
+ * @returns {Promise<number>}
+ */
+const checkReplicaLag = async () => {
+  if (readReplicas.length === 0) return 0;
+  // Placeholder for real replica-lag measurement once replicas are configured.
+  return 0;
+};
+
+/**
+ * Lightweight database health probe used by the failover service.
+ * @returns {Promise<boolean>} true when the primary accepts connections
+ */
+const checkDatabaseHealth = async () => {
+  try {
+    await initPromise;
+    if (!sequelize) return false;
+    await sequelize.authenticate();
+    return true;
+  } catch (error) {
+    console.error('Database health check failed:', error.message);
+    return false;
+  }
+};
+
+// Export the connection accessors. `sequelize` / `writeSequelize` are exposed as
+// getters so consumers always observe the live instance, even though it is
+// assigned asynchronously during initialization.
+module.exports = {
+  get sequelize() {
+    return sequelize;
+  },
+  get writeSequelize() {
+    return sequelize;
+  },
+  readReplicas,
   initializeDatabase,
   getSequelize: async () => {
     await initPromise;
     return sequelize;
-  }
+  },
+  getDatabaseConnection,
+  checkReplicaLag,
+  checkDatabaseHealth,
 };

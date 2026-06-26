@@ -1,0 +1,12 @@
+{
+  "type": "contract",
+  "ledger": 123457,
+  "id": "event_claim_1",
+  "contractId": "CBA456",
+  "timestamp": "2026-06-25T20:00:05Z",
+  "body": {
+    "topic": ["TokensClaimed", "user1"],
+    "data": "AAAAA...",
+    "contractId": "CBA456"
+  }
+}

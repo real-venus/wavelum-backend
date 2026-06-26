@@ -131,14 +131,18 @@ jobs:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: backend/package-lock.json
-          
+
+      - name: Install dependencies
+        working-directory: ./backend
+        run: npm ci
+
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           target: wasm32-unknown-unknown
           override: true
-          
+
       - name: Install Stellar CLI
         working-directory: ./backend
         run: |
@@ -148,12 +152,12 @@ jobs:
           fi
           sudo cp $HOME/.cargo/bin/stellar /usr/local/bin/soroban || true
           sudo cp $HOME/.cargo/bin/stellar /usr/local/bin/stellar || true
-          
+
       - name: Build contracts
         run: |
           cd contracts
           cargo build --target wasm32-unknown-unknown --release
-          
+
       - name: Start backend server
         working-directory: ./backend
         run: |

@@ -126,6 +126,19 @@ jobs:
           DB_PASSWORD: password
           DB_NAME: vesting_vault_test
 
+      # Quarantined suites (jest.quarantine.js): pre-existing failures inherited
+      # from main, run here for visibility/burn-down but NON-BLOCKING.
+      - name: Run quarantined tests (non-blocking)
+        working-directory: backend
+        continue-on-error: true
+        run: npm run test:quarantine
+        env:
+          NODE_ENV: test
+          DB_HOST: localhost
+          DB_USER: postgres
+          DB_PASSWORD: password
+          DB_NAME: vesting_vault_test
+
       - name: Upload coverage report
         uses: actions/upload-artifact@v7
         if: always()

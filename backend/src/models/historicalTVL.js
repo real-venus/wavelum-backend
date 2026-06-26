@@ -83,10 +83,6 @@ const HistoricalTVL = sequelize.define('HistoricalTVL', {
     {
       fields: ['snapshot_date', 'token_address'],
     },
-    {
-      fields: ['snapshot_date'],
-      unique: true,
-    },
   ],
 });
 

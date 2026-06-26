@@ -425,6 +425,10 @@ class TokenUnlockVolumeService {
 
     return riskPeriods.map(period => ({
       ...period,
+      // Emit amounts as fixed-precision strings, consistent with every other
+      // amount this service returns (the raw accumulator values are numbers).
+      peakAmount: period.peakAmount.toFixed(7),
+      totalUnlocks: period.totalUnlocks.toFixed(7),
       averageDailyUnlocks: (period.totalUnlocks / period.days).toFixed(7),
       riskLevel: this.calculateRiskLevel(period.totalUnlocks, mean, stdDev)
     }));

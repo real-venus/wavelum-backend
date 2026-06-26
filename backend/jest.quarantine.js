@@ -21,7 +21,6 @@ module.exports = [
   "src/services/__tests__/beneficiaryLoyaltyBadgeService.test.js",
   "src/services/__tests__/capTableService.test.js",
   "src/services/__tests__/costBasisCalculationService.test.js",
-  "src/services/__tests__/tokenUnlockVolumeService.test.js",
   "src/services/accountConsolidationService.jest.test.js",
   "src/services/accountConsolidationService.test.js",
   "src/services/annualVestingStatementService.test.js",

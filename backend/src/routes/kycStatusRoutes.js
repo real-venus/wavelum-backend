@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const KycStatus = require("../models/KycStatus");
+const { KycStatus } = require("../models");
 // jobs/kycExpirationWorker exports a singleton instance (not a class).
 const kycWorker = require("../jobs/kycExpirationWorker");
 const authService = require("../services/authService");

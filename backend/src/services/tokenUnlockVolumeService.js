@@ -230,7 +230,7 @@ class TokenUnlockVolumeService {
 
     // Calculate daily vesting unlocks
     const vestingStart = new Date(vesting_start_date);
-    const vestingEnd = new Date(vesting_start_date.getTime() + (vesting_duration * 1000));
+    const vestingEnd = new Date(vestingStart.getTime() + (vesting_duration * 1000));
     const dailyVestingRate = remainingAmount / (vesting_duration / (24 * 60 * 60)); // tokens per second
 
     // Generate daily vesting events

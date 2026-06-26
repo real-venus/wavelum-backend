@@ -1,8 +1,14 @@
 const TokenUnlockVolumeService = require('../tokenUnlockVolumeService');
 const { Vault, SubSchedule, Beneficiary } = require('../../models');
 
-// Mock dependencies
-jest.mock('../../models');
+// Mock dependencies.
+// Use a factory (not automock) so the real model files — which call
+// DataTypes.DECIMAL(...) against the mocked sequelize — are never loaded.
+jest.mock('../../models', () => ({
+  Vault: { findAll: jest.fn(), findOne: jest.fn(), findByPk: jest.fn() },
+  SubSchedule: { findAll: jest.fn(), findOne: jest.fn() },
+  Beneficiary: { findAll: jest.fn(), findOne: jest.fn() },
+}));
 jest.mock('sequelize', () => {
   const mSequelize = jest.fn();
   mSequelize.prototype.authenticate = jest.fn();

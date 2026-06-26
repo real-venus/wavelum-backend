@@ -34,6 +34,17 @@ backgroundJobManager.init();
 
 dotenv.config();
 
+// Keep the HTTP server alive when a background service (Soroban RPC poller,
+// path-payment listener, indexing jobs, etc.) throws asynchronously. Without
+// these handlers an unhandled rejection terminates the whole process in modern
+// Node, taking the API down with it.
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled promise rejection (continuing):', reason && reason.message ? reason.message : reason);
+});
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught exception (continuing):', error && error.message ? error.message : error);
+});
+
 const app = express();
 
 // --- NestJS Integration Start ---
@@ -2635,7 +2646,19 @@ const startServer = async () => {
       }
     }, 15000);
 
-    // Initialize Soroban Event Poller Service
+    // Start the HTTP server early so health checks respond immediately, without
+    // waiting on network-dependent background services (Soroban RPC, etc.) that
+    // may be slow or unavailable in some environments.
+    httpServer.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+      console.log(`REST API available at: http://localhost:${PORT}`);
+      if (graphQLServer) {
+        console.log(`GraphQL API available at: http://localhost:${PORT}/graphql`);
+      }
+    });
+
+    // Initialize Soroban Event Poller Service (after listen; it polls an RPC
+    // endpoint and must not block the HTTP server from coming up).
     try {
       const SorobanEventPollerService = require('./services/sorobanEventPollerService');
       const SorobanEventProcessor = require('./services/sorobanEventProcessor');
@@ -2666,24 +2689,14 @@ const startServer = async () => {
       console.error("Failed to initialize Soroban Event services:", sorobanError);
       console.log("Continuing without Soroban event indexing...");
     }
-
-    // Start the HTTP server
-    httpServer.listen(PORT, () => {
-      console.log(`Server is running on port ${PORT}`);
-      console.log(`REST API available at: http://localhost:${PORT}`);
-      if (graphQLServer) {
-        console.log(`GraphQL API available at: http://localhost:${PORT}/graphql`);
-      }
-    });
   } catch (error) {
     console.error('Unable to start server:', error);
     process.exit(1);
   }
 };
 
-startServer();
-
-// ✅ Only start once if run directly
+// ✅ Only start the server when run directly (not when imported by tests).
+// startServer() is invoked once inside the require.main guard below.
 if (require.main === module) {
   // Start KYC expiration worker
   console.log('🔍 Starting KYC expiration monitoring worker...');

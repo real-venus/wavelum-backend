@@ -1,9 +1,30 @@
 const { rateLimit } = require('express-rate-limit');
-const { RedisStore } = require('rate-limit-redis');
-const ioredis = require('ioredis');
 
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
-const client = new ioredis(REDIS_URL);
+// Use a Redis-backed store only when Redis is configured AND we're not running
+// the test/CI suite. A RedisStore pointed at an unavailable Redis makes every
+// request (including /health) hang, so single-instance / test / CI runs fall
+// back to express-rate-limit's default in-memory store.
+let globalStore;
+let authStore;
+const useRedis = process.env.NODE_ENV !== 'test' && !!process.env.REDIS_URL;
+
+if (useRedis) {
+  try {
+    const { RedisStore } = require('rate-limit-redis');
+    const IORedis = require('ioredis');
+    const client = new IORedis(process.env.REDIS_URL, {
+      enableOfflineQueue: false,
+      maxRetriesPerRequest: 1,
+    });
+    client.on('error', (err) => console.error('Rate-limit Redis error:', err.message));
+    globalStore = new RedisStore({ sendCommand: (...args) => client.call(...args), prefix: 'rl:global:' });
+    authStore = new RedisStore({ sendCommand: (...args) => client.call(...args), prefix: 'rl:auth:' });
+  } catch (err) {
+    console.warn('Rate-limit Redis store unavailable, using in-memory store:', err.message);
+    globalStore = undefined;
+    authStore = undefined;
+  }
+}
 
 // Global rate limiter (100 requests/min)
 const globalRateLimiter = rateLimit({
@@ -11,9 +32,7 @@ const globalRateLimiter = rateLimit({
   max: 100,
   standardHeaders: true,
   legacyHeaders: false,
-  store: new RedisStore({
-    sendCommand: (...args) => client.call(...args),
-  }),
+  ...(globalStore ? { store: globalStore } : {}),
   message: {
     success: false,
     error: 'Too many requests, please try again later.',
@@ -26,9 +45,7 @@ const authRateLimiter = rateLimit({
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
-  store: new RedisStore({
-    sendCommand: (...args) => client.call(...args),
-  }),
+  ...(authStore ? { store: authStore } : {}),
   message: {
     success: false,
     error: 'Too many authentication attempts, please try again after a minute.',

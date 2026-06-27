@@ -82,6 +82,31 @@ const rpcRetryCount = new client.Counter({
   labelNames: ['endpoint', 'method']
 });
 
+// Circuit Breaker Metrics (per downstream dependency)
+const circuitBreakerState = new client.Gauge({
+  name: 'circuit_breaker_state',
+  help: 'Circuit breaker state per service (1=active for the labelled state, else 0)',
+  labelNames: ['service', 'state']
+});
+
+const circuitBreakerTripsTotal = new client.Counter({
+  name: 'circuit_breaker_trips_total',
+  help: 'Total number of times a circuit breaker has transitioned to OPEN',
+  labelNames: ['service']
+});
+
+const circuitBreakerFailureCount = new client.Gauge({
+  name: 'circuit_breaker_failure_count',
+  help: 'Current consecutive failure count tracked by the circuit breaker',
+  labelNames: ['service']
+});
+
+const circuitBreakerLastStateChange = new client.Gauge({
+  name: 'circuit_breaker_last_state_change',
+  help: 'Unix timestamp (seconds) of the last circuit breaker state change',
+  labelNames: ['service']
+});
+
 register.registerMetric(apiResponseTime);
 register.registerMetric(activeDbConnections);
 register.registerMetric(totalIndexedBlocks);
@@ -94,6 +119,10 @@ register.registerMetric(rpcEndpointHealth);
 register.registerMetric(rpcHealthCheckLatency);
 register.registerMetric(rpcFailoverCount);
 register.registerMetric(rpcRetryCount);
+register.registerMetric(circuitBreakerState);
+register.registerMetric(circuitBreakerTripsTotal);
+register.registerMetric(circuitBreakerFailureCount);
+register.registerMetric(circuitBreakerLastStateChange);
 
 module.exports = {
   register,
@@ -108,5 +137,9 @@ module.exports = {
   rpcEndpointHealth,
   rpcHealthCheckLatency,
   rpcFailoverCount,
-  rpcRetryCount
+  rpcRetryCount,
+  circuitBreakerState,
+  circuitBreakerTripsTotal,
+  circuitBreakerFailureCount,
+  circuitBreakerLastStateChange
 };

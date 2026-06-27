@@ -371,6 +371,40 @@ app.get("/health/live", (req, res) => {
   });
 });
 
+// Circuit breaker health endpoint — reports the live state of every registered
+// downstream-dependency circuit. Returns 503 if any circuit is currently open.
+app.get("/health/circuit-breakers", (req, res) => {
+  try {
+    const circuitBreakerRegistry = require("./resilience/circuitBreakerRegistry");
+    const circuits = circuitBreakerRegistry.getAllStates();
+    const anyOpen = circuits.some((c) => c.state === "OPEN");
+
+    res.status(anyOpen ? 503 : 200).json({
+      status: anyOpen ? "degraded" : "healthy",
+      timestamp: new Date().toISOString(),
+      total: circuits.length,
+      open: circuits.filter((c) => c.state === "OPEN").length,
+      circuits,
+    });
+  } catch (error) {
+    res.status(500).json({ status: "error", error: error.message });
+  }
+});
+
+// Manual circuit reset — recover a tripped circuit without a service restart.
+app.post("/health/circuit-breakers/:service/reset", (req, res) => {
+  try {
+    const circuitBreakerRegistry = require("./resilience/circuitBreakerRegistry");
+    const reset = circuitBreakerRegistry.reset(req.params.service);
+    if (!reset) {
+      return res.status(404).json({ success: false, error: `No circuit registered for '${req.params.service}'` });
+    }
+    res.json({ success: true, service: req.params.service, message: "Circuit reset to CLOSED" });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Authentication endpoints
 app.post("/api/auth/login", async (req, res) => {
   try {

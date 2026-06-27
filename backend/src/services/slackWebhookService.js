@@ -190,6 +190,122 @@ class SlackWebhookService {
   }
 
   /**
+   * Format a millisecond duration as a short human-readable string.
+   * @param {number|null} ms - Duration in milliseconds
+   * @returns {string}
+   */
+  formatDuration(ms) {
+    if (ms === null || ms === undefined || isNaN(ms)) return 'n/a';
+    const seconds = Math.floor(ms / 1000);
+    if (seconds < 60) return `${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ${seconds % 60}s`;
+    const hours = Math.floor(minutes / 60);
+    return `${hours}h ${minutes % 60}m`;
+  }
+
+  /**
+   * Send a circuit-breaker state-change alert to Slack.
+   * @param {Object} event - Circuit breaker event
+   * @param {string} event.service - Service / dependency name
+   * @param {string} event.state - New state ('open' | 'closed' | 'half-open')
+   * @param {number} [event.failureCount] - Consecutive failures at trip time
+   * @param {number} [event.recoveryLatencyMs] - Time spent open before recovery
+   * @param {number} [event.trips] - Total trips observed for this service
+   * @returns {Promise<boolean>} Success status
+   */
+  async sendCircuitBreakerAlert(event) {
+    try {
+      if (!this.webhookUrl) {
+        console.warn('SLACK_WEBHOOK_URL not set, skipping circuit-breaker Slack notification');
+        return false;
+      }
+
+      const { service, state, failureCount, recoveryLatencyMs, trips } = event;
+      const isOpen = String(state).toLowerCase() === 'open';
+      const headline = isOpen
+        ? `🔴 Circuit OPEN — ${service}`
+        : `🟢 Circuit CLOSED — ${service}`;
+
+      const fields = [
+        { type: 'mrkdwn', text: `*Service:*\n${service}` },
+        { type: 'mrkdwn', text: `*State:*\n${String(state).toUpperCase()}` }
+      ];
+      if (isOpen) {
+        fields.push({ type: 'mrkdwn', text: `*Failures:*\n${failureCount ?? 'n/a'}` });
+        if (trips !== undefined) {
+          fields.push({ type: 'mrkdwn', text: `*Total trips:*\n${trips}` });
+        }
+      } else {
+        fields.push({ type: 'mrkdwn', text: `*Recovery time:*\n${this.formatDuration(recoveryLatencyMs)}` });
+      }
+
+      const payload = {
+        text: headline,
+        blocks: [
+          { type: 'header', text: { type: 'plain_text', text: headline, emoji: true } },
+          { type: 'section', fields },
+          {
+            type: 'context',
+            elements: [{ type: 'mrkdwn', text: `Circuit breaker • ${new Date().toISOString()}` }]
+          }
+        ]
+      };
+
+      const response = await axios.post(this.webhookUrl, payload, {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 5000
+      });
+
+      if (response.status === 200) {
+        console.log(`Slack circuit-breaker alert sent for ${service} (${state})`);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error sending circuit-breaker Slack alert:', error.message);
+      return false;
+    }
+  }
+
+  /**
+   * Send a daily digest summarising circuit-breaker activity.
+   * @param {Array<Object>} summaries - Per-service activity rows
+   *   ({ service, state, trips, failureCount })
+   * @returns {Promise<boolean>} Success status
+   */
+  async sendCircuitBreakerDigest(summaries = []) {
+    try {
+      if (!this.webhookUrl) {
+        console.warn('SLACK_WEBHOOK_URL not set, skipping circuit-breaker digest');
+        return false;
+      }
+
+      const lines = summaries.length
+        ? summaries.map(s => `• *${s.service}* — ${String(s.state).toUpperCase()} | trips: ${s.trips ?? 0} | failures: ${s.failureCount ?? 0}`)
+        : ['• No circuit breakers registered'];
+
+      const payload = {
+        text: '📊 Circuit Breaker Daily Digest',
+        blocks: [
+          { type: 'header', text: { type: 'plain_text', text: '📊 Circuit Breaker Daily Digest', emoji: true } },
+          { type: 'section', text: { type: 'mrkdwn', text: lines.join('\n') } },
+          { type: 'context', elements: [{ type: 'mrkdwn', text: new Date().toISOString() }] }
+        ]
+      };
+
+      const response = await axios.post(this.webhookUrl, payload, {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 5000
+      });
+      return response.status === 200;
+    } catch (error) {
+      console.error('Error sending circuit-breaker digest:', error.message);
+      return false;
+    }
+  }
+
+  /**
    * Process claim and send alert if it's a large claim
    * @param {Object} claimData - Claim data from database
    * @returns {Promise<boolean>} True if alert was sent

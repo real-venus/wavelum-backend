@@ -2492,8 +2492,21 @@ const startServer = async () => {
       console.error("Failed to start DB pool monitor:", poolMonitorError.message);
     }
 
-    await sequelize.sync();
-    console.log("Database synchronized successfully.");
+    // In test/CI the database is an ephemeral in-memory SQLite. Some models use
+    // Postgres-only column types (ARRAY / JSONB) that SQLite cannot represent, so
+    // a full sync can fail there. Tolerate sync errors in test mode so the server
+    // can still boot for smoke tests; production (Postgres) syncs strictly.
+    const isTestEnv = process.env.NODE_ENV === 'test';
+    try {
+      await sequelize.sync(isTestEnv ? { force: true } : {});
+      console.log("Database synchronized successfully.");
+    } catch (syncError) {
+      if (isTestEnv) {
+        console.warn("Database sync issue in test mode; continuing:", syncError.parent?.message || syncError.message);
+      } else {
+        throw syncError;
+      }
+    }
 
     // Initialize SEP-12 KYC Module
     try {
@@ -2656,7 +2669,19 @@ const startServer = async () => {
       }
     }, 15000);
 
-    // Initialize Soroban Event Poller Service
+    // Start the HTTP server early so health checks respond immediately, without
+    // waiting on network-dependent background services (Soroban RPC, etc.) that
+    // may be slow or unavailable in some environments.
+    httpServer.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+      console.log(`REST API available at: http://localhost:${PORT}`);
+      if (graphQLServer) {
+        console.log(`GraphQL API available at: http://localhost:${PORT}/graphql`);
+      }
+    });
+
+    // Initialize Soroban Event Poller Service (after listen; it polls an RPC
+    // endpoint and must not block the HTTP server from coming up).
     try {
       const SorobanEventPollerService = require('./services/sorobanEventPollerService');
       const SorobanEventProcessor = require('./services/sorobanEventProcessor');
@@ -2687,24 +2712,13 @@ const startServer = async () => {
       console.error("Failed to initialize Soroban Event services:", sorobanError);
       console.log("Continuing without Soroban event indexing...");
     }
-
-    // Start the HTTP server
-    httpServer.listen(PORT, () => {
-      console.log(`Server is running on port ${PORT}`);
-      console.log(`REST API available at: http://localhost:${PORT}`);
-      if (graphQLServer) {
-        console.log(`GraphQL API available at: http://localhost:${PORT}/graphql`);
-      }
-    });
   } catch (error) {
     console.error('Unable to start server:', error);
     process.exit(1);
   }
 };
 
-startServer();
-
-// ✅ Only start once if run directly
+// ✅ Only start the server when run directly (not when imported by tests).
 if (require.main === module) {
   // Start KYC expiration worker
   console.log('🔍 Starting KYC expiration monitoring worker...');

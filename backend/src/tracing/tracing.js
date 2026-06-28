@@ -6,6 +6,7 @@
 // absent). If tracing can't be initialized it degrades to a no-op.
 function initializeTracing() {
   let NodeSDK, getNodeAutoInstrumentations, OTLPTraceExporter, JaegerExporter, Resource, SemanticResourceAttributes;
+  let TraceIdRatioBasedSampler, ParentBasedSampler;
   try {
     ({ NodeSDK } = require('@opentelemetry/sdk-node'));
     ({ getNodeAutoInstrumentations } = require('@opentelemetry/auto-instrumentations-node'));
@@ -14,6 +15,7 @@ function initializeTracing() {
     ({ JaegerExporter } = require('@opentelemetry/exporter-jaeger'));
     ({ Resource } = require('@opentelemetry/resources'));
     ({ SemanticResourceAttributes } = require('@opentelemetry/semantic-conventions'));
+    ({ TraceIdRatioBasedSampler, ParentBasedSampler } = require('@opentelemetry/sdk-trace-base'));
   } catch (err) {
     console.warn('OpenTelemetry tracing disabled (dependency unavailable):', err.message);
     return null;
@@ -53,11 +55,12 @@ function initializeTracing() {
           enabled: false,
         },
       })],
-      // Sampling configuration
-      sampler: {
-        type: 'traceidratio',
-        ratio: isProduction ? 0.1 : 1.0, // 10% sampling in production, 100% in development
-      },
+      // Sampling configuration — must be a Sampler instance (a plain
+      // { type, ratio } object has no shouldSample() and crashes span creation).
+      // 10% sampling in production, 100% in development; respect parent decisions.
+      sampler: new ParentBasedSampler({
+        root: new TraceIdRatioBasedSampler(isProduction ? 0.1 : 1.0),
+      }),
     });
 
     // Initialize the SDK

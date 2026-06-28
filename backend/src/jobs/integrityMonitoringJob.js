@@ -1,6 +1,8 @@
 const cron = require('node-cron');
 const { Vault, Beneficiary } = require('../models');
-const { rpc, xdr, Address } = require('stellar-sdk');
+// stellar-sdk v11 exposes the Soroban RPC client as `SorobanRpc.Server`
+// (the `rpc` namespace only exists in @stellar/stellar-sdk v12+).
+const { SorobanRpc, xdr, Address } = require('stellar-sdk');
 const notificationService = require('../services/notificationService');
 
 /**
@@ -16,7 +18,7 @@ class IntegrityMonitoringJob {
     this.cronSchedule = '0 * * * *'; // Run every hour
     this.rpcUrl = process.env.STELLAR_RPC_URL || 'https://soroban-testnet.stellar.org:443';
     this.approvedHash = process.env.APPROVED_VAULT_WASM_HASH;
-    this.server = new rpc.Server(this.rpcUrl);
+    this.server = new SorobanRpc.Server(this.rpcUrl);
 
     if (!this.approvedHash) {
       console.warn('WARNING: APPROVED_VAULT_WASM_HASH is not defined. Integrity monitoring will log mismatches but cannot verify.');

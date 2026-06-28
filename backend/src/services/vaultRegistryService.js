@@ -1,12 +1,13 @@
 const { VaultRegistry, Vault, IndexerState } = require('../models');
 const { Op } = require('sequelize');
 const Sentry = require('@sentry/node');
-const { Server } = require('stellar-sdk');
+// stellar-sdk v11 replaced the old top-level `Server` with `Horizon.Server`.
+const { Horizon } = require('stellar-sdk');
 
 class VaultRegistryService {
   constructor() {
     this.serviceName = 'vault-registry-indexer';
-    this.stellarServer = new Server(process.env.STELLAR_HORIZON_URL || 'https://horizon-testnet.stellar.org');
+    this.stellarServer = new Horizon.Server(process.env.STELLAR_HORIZON_URL || 'https://horizon-testnet.stellar.org');
   }
 
   /**

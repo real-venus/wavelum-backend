@@ -1,4 +1,5 @@
-const { Server, Horizon } = require('stellar-sdk');
+// stellar-sdk v11: Soroban RPC client is `SorobanRpc.Server`, classic is `Horizon.Server`.
+const { Horizon, SorobanRpc } = require('stellar-sdk');
 const EventEmitter = require('events');
 const Sentry = require('@sentry/node');
 const slackWebhookService = require('./slackWebhookService');
@@ -8,7 +9,7 @@ class ShadowIndexingService extends EventEmitter {
     super();
     this.name = 'shadow-indexing';
     this.isEnabled = process.env.SHADOW_INDEXING_ENABLED === 'true';
-    this.server = new Server(process.env.SOROBAN_RPC_URL || 'https://rpc.mainnet.stellar.org');
+    this.server = new SorobanRpc.Server(process.env.SOROBAN_RPC_URL || 'https://rpc.mainnet.stellar.org');
     this.horizon = new Horizon.Server(process.env.HORIZON_URL || 'https://horizon.stellar.org');
     this.currentIndex = 0;
     this.processedLedgers = new Map();

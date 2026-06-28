@@ -39,6 +39,11 @@ module.exports = defineConfig({
       JWT_SECRET: process.env.JWT_SECRET || 'e2e-test-jwt-secret-not-for-production',
       JWT_REFRESH_SECRET:
         process.env.JWT_REFRESH_SECRET || 'e2e-test-refresh-secret-not-for-production',
+      TRANSPARENCY_PRIVATE_KEY:
+        process.env.TRANSPARENCY_PRIVATE_KEY || 'e2e-test-transparency-private-key',
+      TRANSPARENCY_PUBLIC_KEY:
+        process.env.TRANSPARENCY_PUBLIC_KEY || 'e2e-test-transparency-public-key',
+      FIREBASE_SERVICE_ACCOUNT_PATH: '',
     },
   },
 });

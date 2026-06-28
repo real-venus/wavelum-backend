@@ -3,8 +3,16 @@ name: Smart Contract Tests
 on:
   push:
     branches: [ "main", "develop", "feature/*" ]
+    paths:
+      - 'contracts/**'
+      - '.github/workflows/smart-contract-tests.yml'
+  # Only run on pull requests that actually touch the smart contracts. Backend-
+  # only PRs do not change Rust sources, so the contract suite is skipped for
+  # them instead of failing on unrelated, pre-existing contract issues.
   pull_request:
     branches: [ "main", "develop" ]
+    paths:
+      - 'contracts/**'
 
 jobs:
   smart-contract-tests:
